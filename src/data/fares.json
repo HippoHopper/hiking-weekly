@@ -1,0 +1,11 @@
+{
+  "updatedAt": "2026-09-01T12:44:39.671Z",
+  "note": "由 scripts/fetch-routes.js 构建期自动刷新（Google Flights 实时最低价快照）；抓取失败时保留旧数据，前端比价自动回退为推荐高铁。",
+  "routes": {
+    "dalian-coastal": {
+      "flightMinCny": 1011,
+      "fetchedAt": "2026-09-01T12:44:39.666Z",
+      "departDate": "2026-09-05"
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "name": "hiking-weekly",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "fetch:routes": "node scripts/fetch-routes.js",
+    "fetch:photos": "node scripts/fetch-routes.js --photos-only",
+    "fetch:ingest": "node scripts/fetch-routes.js --ingest",
+    "fetch:fares": "node scripts/fetch-routes.js --fares"
+  },
+  "dependencies": {
+    "lucide-react": "^0.511.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.4.1",
+    "autoprefixer": "^10.4.21",
+    "playwright": "^1.62.1",
+    "postcss": "^8.5.3",
+    "tailwindcss": "^3.4.17",
+    "vite": "^6.3.5"
+  }
+}
