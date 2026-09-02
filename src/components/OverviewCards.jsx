@@ -106,22 +106,25 @@ function MileageCard({ route }) {
         <Footprints className="h-3.5 w-3.5" aria-hidden />
         预计里程
       </p>
-      <p className="mt-1.5 font-display text-2xl font-semibold leading-none text-moss-900">
+      <p className="mt-2.5 font-display text-2xl font-semibold leading-none text-moss-900">
         {route.overview.total_hiking_km}
         <span className="ml-1 text-xs font-normal text-moss-500">km 总长</span>
       </p>
-      <ul className="mt-2.5 space-y-1">
+      <ul className="flex flex-1 flex-col justify-center gap-1.5 py-3">
         {[
           { day: "Day 1", value: route.daily_distances.day1 },
           { day: "Day 2", value: route.daily_distances.day2 },
         ].map((row) => (
-          <li key={row.day} className="flex items-center justify-between text-xs">
+          <li
+            key={row.day}
+            className="flex items-center justify-between rounded-xl bg-white/60 px-2.5 py-1.5 text-xs"
+          >
             <span className="text-moss-600">{row.day}</span>
             <span className="font-medium text-moss-800">{row.value}</span>
           </li>
         ))}
       </ul>
-      <p className="mt-auto pt-2">
+      <p>
         <span className="inline-flex rounded-full bg-moss-900/10 px-2 py-0.5 text-[10px] font-medium text-moss-700">
           难度 {route.overview.difficulty_level}
         </span>
@@ -130,16 +133,19 @@ function MileageCard({ route }) {
   );
 }
 
-function TransportRow({ emoji, text, duration, href, recommended, label }) {
-  const iconBtn = recommended
-    ? "ml-auto inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-moss-900 text-sand-50 transition hover:bg-moss-700"
-    : "ml-auto inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-moss-700/25 text-moss-700 transition hover:border-moss-700/50 hover:bg-white";
+function TransportRow({ icon: Icon, text, href, recommended, label }) {
   return (
-    <div className="flex items-center gap-1.5 text-xs">
-      <span aria-hidden>{emoji}</span>
+    <div className="flex items-center gap-1.5 whitespace-nowrap text-xs">
+      <Icon className="h-3.5 w-3.5 shrink-0 text-moss-500" aria-hidden />
       <span className={recommended ? "font-semibold text-moss-900" : "text-moss-600"}>{text}</span>
-      {duration ? <span className="shrink-0 text-moss-400">· {duration}</span> : null}
-      <a href={href} target="_blank" rel="noreferrer" aria-label={label} title={label} className={iconBtn}>
+      <a
+        href={href}
+        target="_blank"
+        rel="noreferrer"
+        aria-label={label}
+        title={label}
+        className="ml-auto inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-moss-700/20 text-moss-500 transition hover:border-moss-700/50 hover:bg-white hover:text-moss-700"
+      >
         <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
       </a>
     </div>
@@ -151,7 +157,11 @@ function TransportCard({ route, weekend }) {
   const dep = route.departure || {};
   const flightAvailable = Boolean(dep.flight_url);
   const flightWins = recommend.mode === "flight";
-  const flightText = recommend.flight ? `机票实时最低 ¥${recommend.flight.minCny}` : "机票实时比价";
+  const withDuration = (label, duration) => (duration ? `${label} · ${duration}` : label);
+  const trainText = withDuration(`高铁 ¥${recommend.train.fareRefCny ?? "—"}`, dep.train_duration);
+  const flightText = recommend.flight
+    ? withDuration(`机票 ¥${recommend.flight.minCny}`, dep.flight_duration)
+    : withDuration("机票比价", dep.flight_duration);
 
   return (
     <div className="flex h-full flex-col rounded-2xl bg-moss-50 px-4 py-3">
@@ -166,20 +176,18 @@ function TransportCard({ route, weekend }) {
           {flightWins ? "✈️ 本周机票特价" : "🚄 高铁出行更省"}
         </span>
       </p>
-      <div className="mt-auto space-y-2 pt-3">
+      <div className="mt-auto space-y-2.5 pt-3">
         <TransportRow
-          emoji="🚄"
-          text={`高铁二等座参考 ¥${recommend.train.fareRefCny ?? "—"} 起`}
-          duration={dep.train_duration}
+          icon={TrainFront}
+          text={trainText}
           href={recommend.train.url}
           recommended={!flightWins}
           label="前往 12306 查票/订票"
         />
         {flightAvailable ? (
           <TransportRow
-            emoji="✈️"
+            icon={Plane}
             text={flightText}
-            duration={dep.flight_duration}
             href={buildQunarFlightUrl(route.weather_info.target_city, weekend.saturday)}
             recommended={flightWins}
             label="前往去哪儿查询实时机票"

@@ -37,6 +37,26 @@ export function fillDateTemplate(url, saturday, sunday) {
     .replaceAll("{return}", toISODate(sunday));
 }
 
+/**
+ * 行程流交通段文案：与交通卡推荐结果联动。
+ * mode 为 recommendTransport 返回的 "train" | "flight"，
+ * 保证"卡推高铁、Day 1 就写高铁"的前后一致性。
+ */
+export function transportSegmentText(route, dayNum, mode) {
+  const dep = route.departure || {};
+  const dest = (route.transport_label || "").split("⇄")[1]?.trim() || route.weather_info?.target_city || "";
+  const spot = dep.arrival_spot || "酒店";
+  const byFlight = mode === "flight" && Boolean(dep.flight_url);
+
+  if (dayNum === 1) {
+    return byFlight
+      ? `北京飞${dest}，落地直达${spot}。`
+      : `北京高铁至${dest}，到达${dep.train_arrival || `${dest}站`}后直达${spot}。`;
+  }
+  const tail = dep.return_note ? dep.return_note.replace(/^[，,]/, "") : "结束周末行程。";
+  return byFlight ? `飞回北京，${tail}` : `乘高铁返京，${tail}`;
+}
+
 /** 去哪儿机票单程搜索（北京 → 目的城市，周六出发），供交通卡 icon 跳转。 */
 export function buildQunarFlightUrl(cityName, departDate) {
   const params = new URLSearchParams({

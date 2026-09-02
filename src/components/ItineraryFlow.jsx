@@ -1,5 +1,7 @@
 import { ExternalLink, Route } from "lucide-react";
 import TrackMapCover from "./TrackMapCover";
+import { recommendTransport, transportSegmentText } from "../lib/weekend.js";
+import faresSnapshot from "../data/fares.json";
 
 const ACTIVITY_LABEL = {
   hiking: "徒步",
@@ -12,7 +14,10 @@ function hideBrokenImage(event) {
   if (figure) figure.style.display = "none";
 }
 
-function DayModule({ route, day }) {
+const withBase = (src) =>
+  /^https?:\/\//.test(src) ? src : `${import.meta.env.BASE_URL}${src.replace(/^\//, "")}`;
+
+function DayModule({ route, day, mode }) {
   const photos = day.photos ?? [];
   const distance = route.daily_distances?.[`day${day.day}`];
 
@@ -39,7 +44,11 @@ function DayModule({ route, day }) {
                 <p className="text-xs text-moss-500">
                   {segment.time} · {ACTIVITY_LABEL[segment.activity_type] ?? segment.activity_type}
                 </p>
-                <p className="mt-0.5 text-sm leading-relaxed text-moss-800">{segment.highlight}</p>
+                <p className="mt-0.5 text-sm leading-relaxed text-moss-800">
+                  {segment.activity_type === "transport"
+                    ? transportSegmentText(route, day.day, mode)
+                    : segment.highlight}
+                </p>
               </li>
             ))}
           </ul>
@@ -53,7 +62,7 @@ function DayModule({ route, day }) {
               {photos.slice(0, 3).map((src, index) => (
                 <figure key={src} className="overflow-hidden rounded-xl bg-moss-100 shadow-card">
                   <img
-                    src={src}
+                    src={withBase(src)}
                     alt={`Day ${day.day} ${route.title} 实景照片 ${index + 1}`}
                     className="h-24 w-full object-cover sm:h-28"
                     loading="lazy"
@@ -95,13 +104,15 @@ function DayModule({ route, day }) {
 }
 
 export default function ItineraryFlow({ route }) {
+  const mode = recommendTransport(route, faresSnapshot).mode;
+
   return (
     <section className="mt-8">
       <h3 className="text-sm font-medium text-moss-800">每日行程流</h3>
 
       <div className="mt-4 space-y-5">
         {route.itinerary.days.map((day) => (
-          <DayModule key={day.day} route={route} day={day} />
+          <DayModule key={day.day} route={route} day={day} mode={mode} />
         ))}
       </div>
     </section>
