@@ -26,6 +26,28 @@ export function getUpcomingWeekend(from = new Date()) {
   return { saturday, sunday };
 }
 
+/**
+ * 目标周末：配合每周一 20:00（北京时间 = UTC 12:00）的管道发布节奏。
+ * 每次发布推荐的是"下周周末"——发布周一往后 +12/+13 天的周六、周日；
+ * 周一 20:00 发布前，页面展示的仍是上周一发布的内容。
+ * 全部按北京时间（UTC+8，无夏令时）计算，保证本地、CI、任何时区结果一致。
+ */
+export function getTargetWeekend(from = new Date()) {
+  const bj = new Date(from.getTime() + 8 * 3_600_000);
+  const weekday = bj.getUTCDay(); // 0=周日 … 6=周六
+  const refMonday = new Date(Date.UTC(bj.getUTCFullYear(), bj.getUTCMonth(), bj.getUTCDate()));
+  refMonday.setUTCDate(refMonday.getUTCDate() - ((weekday + 6) % 7));
+  if (weekday === 1 && bj.getUTCHours() < 20) {
+    refMonday.setUTCDate(refMonday.getUTCDate() - 7);
+  }
+  const saturdayUTC = new Date(refMonday);
+  saturdayUTC.setUTCDate(refMonday.getUTCDate() + 12); // 周一 +12 = 下周六
+  const sundayUTC = new Date(saturdayUTC);
+  sundayUTC.setUTCDate(saturdayUTC.getUTCDate() + 1);
+  const toLocalDate = (d) => new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+  return { saturday: toLocalDate(saturdayUTC), sunday: toLocalDate(sundayUTC) };
+}
+
 export function formatWeekendRange(saturday, sunday) {
   const fmt = new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric", weekday: "short" });
   return `${fmt.format(saturday)} – ${fmt.format(sunday)}`;

@@ -36,7 +36,12 @@ const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36";
 const PHOTO_BASE = "https://down-files.2bulu.com/f/d1?downParams=";
 const TARGET_POINTS = 90;
-const WAIT_TRACK_MS = 180_000;
+// 本地有头模式留足手动过 WAF 的时间；CI 无头被 WAF 拦是预期降级，快速失败保留旧数据
+const WAIT_TRACK_MS = process.env.FETCH_WAIT_MS
+  ? Number(process.env.FETCH_WAIT_MS)
+  : process.env.CI
+    ? 45_000
+    : 180_000;
 
 const STEALTH_SCRIPT = () => {
   Object.defineProperty(navigator, "webdriver", { get: () => undefined });
@@ -66,19 +71,26 @@ const writeJson = (file, data) => fs.writeFileSync(file, `${JSON.stringify(data,
 const loadRoutes = () => readJson(ROUTES_JSON, []);
 const saveRoutes = (data) => writeJson(ROUTES_JSON, data);
 
-function toISODate(date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
-function nextWeekendDates(from = new Date()) {
-  const today = new Date(from);
-  today.setHours(0, 0, 0, 0);
-  const weekday = today.getDay();
-  const saturday = new Date(today);
-  if (weekday === 0) saturday.setDate(today.getDate() - 1);
-  else if (weekday !== 6) saturday.setDate(today.getDate() + (6 - weekday));
+/**
+ * 目标周末日期（北京时间 UTC+8，与周末发布节奏一致）：
+ * 管道每周一 20:00 发布"下周周末"的内容，即发布周一 +12/+13 天；
+ * 周一 20:00 前仍按上周一发布的那一周计算。
+ */
+function targetWeekendDates(from = new Date()) {
+  const bj = new Date(from.getTime() + 8 * 3_600_000);
+  const weekday = bj.getUTCDay(); // 0=周日 … 6=周六
+  const refMonday = new Date(Date.UTC(bj.getUTCFullYear(), bj.getUTCMonth(), bj.getUTCDate()));
+  refMonday.setUTCDate(refMonday.getUTCDate() - ((weekday + 6) % 7));
+  if (weekday === 1 && bj.getUTCHours() < 20) {
+    refMonday.setUTCDate(refMonday.getUTCDate() - 7);
+  }
+  const saturday = new Date(refMonday);
+  saturday.setUTCDate(refMonday.getUTCDate() + 12); // 周一 +12 = 下周六
   const sunday = new Date(saturday);
-  sunday.setDate(saturday.getDate() + 1);
-  return { depart: toISODate(saturday), back: toISODate(sunday) };
+  sunday.setUTCDate(saturday.getUTCDate() + 1);
+  const iso = (d) =>
+    `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+  return { depart: iso(saturday), back: iso(sunday) };
 }
 
 function normalizePhotoUrl(raw) {
@@ -350,7 +362,7 @@ async function ingestSubmissions(context, headed) {
 /** best-effort 机票实时快照 → src/data/fares.json；失败保留旧快照 */
 async function refreshFares(context, headed) {
   const routes = loadRoutes();
-  const { depart, back } = nextWeekendDates();
+  const { depart, back } = targetWeekendDates();
   const snapshot = readJson(FARES_JSON, { updatedAt: null, routes: {} });
   snapshot.routes = snapshot.routes || {};
   let updated = 0;
@@ -417,13 +429,24 @@ async function main() {
   const faresOnly = argv.includes("--fares");
 
   const routes = loadRoutes();
-  const context = await launchBrowser(headed);
+  const { depart, back } = targetWeekendDates();
+  log(`目标周末：${depart}（周六）– ${back}（周日），模式：${headed ? "有头（可手动过 WAF）" : "无头"}`);
+  let context;
+  try {
+    context = await launchBrowser(headed);
+  } catch (err) {
+    if (process.env.CI) {
+      warn(`浏览器启动失败，本次跳过所有采集，保留现有数据：${err.message}`);
+      return; // CI 中这是可降级故障：旧数据完好，后续部署照常进行
+    }
+    throw err;
+  }
   let ok = 0;
   const skipWeekly = faresOnly || ingestOnly;
   const entries = skipWeekly ? [] : readEntries(argv).map((e) => ({ ...e, headed }));
   try {
     if (!faresOnly && !ingestOnly) {
-      log(`周路线采集：${entries.length} 条轨迹，模式：${headed ? "有头（可手动过 WAF）" : "无头"}`);
+      log(`周路线采集：${entries.length} 条轨迹`);
       for (const entry of entries) {
         try {
           await collectEntry(context, entry, routes);
@@ -442,8 +465,10 @@ async function main() {
   } finally {
     await context.close();
   }
-  log(`管道结束：周路线 ${ok}/${entries.length} 成功${ok < entries.length && entries.length ? "（失败项已保留旧数据）" : ""}`);
-  if (entries.length && ok < entries.length) process.exitCode = 1;
+  const failed = entries.length - ok;
+  log(`管道结束：周路线 ${ok}/${entries.length} 成功${failed ? `（${failed} 条失败已保留旧数据）` : ""}`);
+  // 本地运行时用非零退出码提示主编有采集失败；CI 中 WAF 拦截属预期降级（旧数据完好、部署继续），不算管道失败
+  if (failed && !process.env.CI) process.exitCode = 1;
 }
 
 main().catch((err) => {

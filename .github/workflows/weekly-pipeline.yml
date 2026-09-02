@@ -1,0 +1,56 @@
+name: weekly-pipeline
+
+# 每周一 UTC 12:00（北京时间周一 20:00）离线采集下周路线并部署；也支持网页手动触发
+on:
+  schedule:
+    - cron: "0 12 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: weekly-pipeline
+  cancel-in-progress: false
+
+jobs:
+  fetch-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run offline collection pipeline
+        run: node scripts/fetch-routes.js
+        # 脚本设计为 best-effort：两步路 WAF 拦截等单项失败会保留旧数据且不崩溃，
+        # 机票快照、投稿入库各自独立降级，管道步骤本身以退出码 0 正常结束
+
+      - name: Commit updated snapshots
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+          git add src/data/routes.json src/data/fares.json public/photos scripts/track-library.json
+          if git diff --cached --quiet; then
+            echo "本周无数据变更，跳过提交"
+          else
+            git commit -m "chore: 每周离线采集快照（$(date -u +%Y-%m-%d)）"
+            git push origin "HEAD:${{ github.ref_name }}"
+          fi
+
+      - name: Build and deploy to GitHub Pages
+        run: npm run deploy
+        # predeploy 自动执行 npm run build；gh-pages 复用上方配置了 token 的 origin 推送 gh-pages 分支

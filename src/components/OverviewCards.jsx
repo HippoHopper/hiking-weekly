@@ -3,7 +3,7 @@ import { ArrowUpRight, CloudSun, Footprints, Plane, ThumbsUp, TrainFront } from 
 import {
   buildQunarFlightUrl,
   fetchWeekendForecast,
-  getUpcomingWeekend,
+  getTargetWeekend,
   outfitFromTemp,
   recommendTransport,
 } from "../lib/weekend.js";
@@ -69,7 +69,7 @@ function WeatherCard({ route, weekend }) {
           天气 · {wi.target_city}
         </p>
         <span className="rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-medium tracking-wide text-sea-600">
-          {status === "fallback" ? "季节参考" : "本周末预测"}
+          {status === "fallback" ? "季节参考" : "下周末预测"}
         </span>
       </div>
 
@@ -199,7 +199,8 @@ function TransportCard({ route, weekend }) {
 }
 
 export default function OverviewCards({ route }) {
-  const weekend = getUpcomingWeekend();
+  // 与每周管道发布节奏一致：展示"下周目标周末"（发布周一 +12/+13 天）
+  const weekend = getTargetWeekend();
 
   return (
     <div className="mt-6 grid grid-cols-1 items-stretch gap-3 sm:grid-cols-3">
