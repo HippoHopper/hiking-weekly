@@ -1,6 +1,6 @@
 name: weekly-pipeline
 
-# 每周一 UTC 12:00（北京时间周一 20:00）离线采集下周路线并部署；也支持网页手动触发
+# 每周一 UTC 12:00（北京时间周一 20:00）发布下周周末的三条轮换路线并部署；也支持网页手动触发
 on:
   schedule:
     - cron: "0 12 * * 1"
@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  fetch-and-deploy:
+  rotate-and-deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -33,21 +33,24 @@ jobs:
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Run offline collection pipeline
-        run: node scripts/fetch-routes.js
-        # 脚本设计为 best-effort：两步路 WAF 拦截等单项失败会保留旧数据且不崩溃，
-        # 机票快照、投稿入库各自独立降级，管道步骤本身以退出码 0 正常结束
+      - name: Rotate weekly routes from local track library
+        # 纯离线：只读仓库内 track-library.json/destinations.json/published.json，
+        # 不访问两步路（数据中心 IP 过不了 WAF）；库存由本机每日 discover 攒好后提交入库。
+        # open-meteo 天气实时参与打分；库存为空时脚本不改动 routes.json，部署自然保留上周内容。
+        run: node scripts/fetch-routes.js --rotate --write --fares
+        # 机票快照为 best-effort：Google Flights 抓取失败保留 fares.json 旧快照，不阻断发布
 
-      - name: Commit updated snapshots
+      - name: Commit rotation snapshot
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git remote set-url origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
-          git add src/data/routes.json src/data/fares.json public/photos scripts/track-library.json
+          git add src/data/routes.json src/data/fares.json scripts/published.json scripts/track-library.json public/photos
           if git diff --cached --quiet; then
             echo "本周无数据变更，跳过提交"
           else
-            git commit -m "chore: 每周离线采集快照（$(date -u +%Y-%m-%d)）"
+            git commit -m "chore: 每周轮换选品快照（$(date -u +%Y-%m-%d)）"
+            git pull --rebase --autostash origin "${{ github.ref_name }}" || true
             git push origin "HEAD:${{ github.ref_name }}"
           fi
 

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.hiking-weekly.discover</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>-lc</string>
+    <string>cd /Users/bytedance/Mia/hiking-weekly &amp;&amp; ./scripts/discover-and-sync.sh</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/bytedance/Mia/hiking-weekly</string>
+
+  <!-- 每天 21:08 本机有头发现新轨迹；电脑睡眠错过会在下次唤醒后补跑 -->
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>21</integer>
+    <key>Minute</key>
+    <integer>8</integer>
+  </dict>
+
+  <key>RunAtLoad</key>
+  <false/>
+
+  <key>StandardOutPath</key>
+  <string>/Users/bytedance/Mia/hiking-weekly/logs/discover.launchd.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/bytedance/Mia/hiking-weekly/logs/discover.launchd.err.log</string>
+</dict>
+</plist>

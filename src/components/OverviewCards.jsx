@@ -158,7 +158,10 @@ function TransportCard({ route, weekend }) {
   const flightAvailable = Boolean(dep.flight_url);
   const flightWins = recommend.mode === "flight";
   const withDuration = (label, duration) => (duration ? `${label} · ${duration}` : label);
-  const trainText = withDuration(`高铁 ¥${recommend.train.fareRefCny ?? "—"}`, dep.train_duration);
+  const trainText =
+    recommend.train.fareRefCny != null
+      ? withDuration(`高铁 ¥${recommend.train.fareRefCny}`, dep.train_duration)
+      : withDuration("高铁 12306 实时查价", dep.train_duration);
   const flightText = recommend.flight
     ? withDuration(`机票 ¥${recommend.flight.minCny}`, dep.flight_duration)
     : withDuration("机票比价", dep.flight_duration);

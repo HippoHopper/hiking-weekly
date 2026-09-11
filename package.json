@@ -12,7 +12,12 @@
     "fetch:routes": "node scripts/fetch-routes.js",
     "fetch:photos": "node scripts/fetch-routes.js --photos-only",
     "fetch:ingest": "node scripts/fetch-routes.js --ingest",
-    "fetch:fares": "node scripts/fetch-routes.js --fares"
+    "fetch:fares": "node scripts/fetch-routes.js --fares",
+    "seed": "node scripts/fetch-routes.js --seed",
+    "rotate": "node scripts/fetch-routes.js --rotate",
+    "rotate:write": "node scripts/fetch-routes.js --rotate --write",
+    "discover": "node scripts/fetch-routes.js --discover",
+    "test": "node --test scripts/lib/rotation.test.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.511.0",
