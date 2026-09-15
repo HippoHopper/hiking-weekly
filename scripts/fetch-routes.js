@@ -31,6 +31,7 @@ import {
   WEEKLY_PICK_COUNT,
 } from "./lib/rotation.mjs";
 import { describeWeatherCode } from "../src/lib/weekend.js";
+import { launchRealChrome } from "./lib/cdp-browser.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(HERE, "..");
@@ -44,15 +45,18 @@ const PUBLISHED_JSON = path.join(HERE, "published.json");
 const DISCOVER_QUEUE_JSON = path.join(HERE, "discover-queue.json");
 const PHOTO_ROOT = path.join(ROOT, "public/photos");
 const PROFILE_DIR = path.join(ROOT, ".pw-profile");
+const CDP_PROFILE_DIR = path.join(ROOT, ".chrome-cdp");
+const CDP_PORT = Number(process.env.CDP_PORT || 9222);
 
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36";
 const PHOTO_BASE = "https://down-files.2bulu.com/f/d1?downParams=";
 const TARGET_POINTS = 90;
-// 本地有头模式留足手动过 WAF 的时间；CI 无头被 WAF 拦是预期降级，快速失败保留旧数据
+// 本地有头模式留足手动过 WAF 的时间；GitHub Actions 无头被 WAF 拦是预期降级，快速失败保留旧数据。
+// 注意不能只看 CI：本机 agent shell 也带 CI=true，会把发现层等待误缩到 45s。
 const WAIT_TRACK_MS = process.env.FETCH_WAIT_MS
   ? Number(process.env.FETCH_WAIT_MS)
-  : process.env.CI
+  : process.env.GITHUB_ACTIONS
     ? 45_000
     : 180_000;
 
@@ -201,6 +205,9 @@ async function extractTrack(page, url, headed) {
             photos,
             line,
             center: [Math.round(lng * 100000) / 100000, Math.round(lat * 100000) / 100000],
+            docTitle: document.title,
+            // 默认按步行处理，只排除标题里明确标注其他运动类型的（不少步行轨迹标题无类别后缀）
+            walk: !/驾车|骑行|水上|飞行|雪地|陆地滑行|驾驶/.test(document.title),
           };
         },
         [TARGET_POINTS],
@@ -209,7 +216,11 @@ async function extractTrack(page, url, headed) {
     if (data && data.line.length >= 2) return data;
 
     const bodyText = await page.evaluate(() => (document.body ? document.body.textContent : "")).catch(() => "");
-    if (bodyText.includes("当前环境") || bodyText.includes("系统异常")) {
+    if (
+      bodyText.includes("当前环境") ||
+      bodyText.includes("系统异常") ||
+      bodyText.includes("客户端异常")
+    ) {
       if (!wafHinted) {
         warn(
           headed
@@ -248,6 +259,15 @@ async function extractFlightPrice(page, flightUrl, headed) {
 }
 
 async function launchBrowser(headed) {
+  // 有头发现层走本机真实 Chrome（CDP）：SafeLine WAF 对 Playwright 指纹必拦，
+  // 真实 Chrome 指纹为 navigator.webdriver=false，且 cookie/信任在独立 profile 中持久化。
+  if (headed && process.platform === "darwin") {
+    return launchRealChrome({
+      profileDir: CDP_PROFILE_DIR,
+      port: CDP_PORT,
+      startUrl: "https://www.2bulu.com/",
+    });
+  }
   const { chromium } = await import("playwright");
   fs.mkdirSync(PROFILE_DIR, { recursive: true });
   const base = {
@@ -634,7 +654,8 @@ const DISCOVER_TARGET_GROUPS = Number(process.env.DISCOVER_TARGET_GROUPS || 3);
 const DISCOVER_MAX_NEW = Number(process.env.DISCOVER_MAX_NEW || 10);
 const DISCOVER_PAGES = Number(process.env.DISCOVER_PAGES || 2);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const jitterMs = () => 1500 + Math.random() * 2000;
+// 3.5–7s 随机间隔：今天的探针密集请求会触发 SafeLine 频率拦截，发现层宁可慢也不要被限流
+const jitterMs = () => 3500 + Math.random() * 3500;
 
 /** 从搜索结果页 a[href*="/track/t-"] 收集轨迹详情页 URL（Node 侧归一化去重） */
 async function collectListLinks(page, keyword, pageNum, headed) {
@@ -649,12 +670,14 @@ async function collectListLinks(page, keyword, pageNum, headed) {
       .catch(() => []);
     const links = new Set();
     for (const href of hrefs) {
+      // href 为双重编码形态（%252F…%253D%253D），必须原样使用；
+      // 再 decode 一次会变成单次编码 URL，站点直接返回 HTTP 400
       const m = /\/track\/(t-[^/?#]+\.htm)/.exec(href);
-      if (m) links.add(`https://www.2bulu.com/track/${decodeURIComponent(m[1])}`);
+      if (m) links.add(`https://www.2bulu.com/track/${m[1]}`);
     }
     if (links.size) return [...links];
     const bodyText = await page.evaluate(() => (document.body ? document.body.textContent : "")).catch(() => "");
-    if (/当前环境|系统异常/.test(bodyText)) {
+    if (/当前环境|系统异常|客户端异常/.test(bodyText)) {
       if (!wafHinted) {
         warn(headed ? "搜索页被 WAF 拦截，请在浏览器窗口完成验证，脚本继续…" : "搜索页被 WAF 拦截，建议 --headed 运行");
         wafHinted = true;
@@ -677,7 +700,10 @@ async function runDiscover(context, headed) {
   saveLibrary({ version: library.version, tracks: built0.tracks });
   const groupCount = new Map();
   for (const g of built0.groups) groupCount.set(g.slug, (groupCount.get(g.slug) || 0) + 1);
-  const targets = destinations.filter((d) => (groupCount.get(d.slug) || 0) < DISCOVER_TARGET_GROUPS);
+  // 库存为 0 的城市优先：尽快扩大城市覆盖（"每周不同"比给同城攒备份更重要）
+  const targets = destinations
+    .filter((d) => (groupCount.get(d.slug) || 0) < DISCOVER_TARGET_GROUPS)
+    .sort((a, b) => (groupCount.get(a.slug) || 0) - (groupCount.get(b.slug) || 0));
   if (!targets.length) {
     log(`每个目的地都已攒够 ${DISCOVER_TARGET_GROUPS} 组，本次无需发现`);
     return;
@@ -713,6 +739,16 @@ async function runDiscover(context, headed) {
           const km = data.mileage ? Math.round(data.mileage * 10) / 10 : null;
           if (!km || km < 3 || km > 45 || !data.line || data.line.length < 10) {
             warn(`跳过（里程/点数不合周末双日线）：${data.name || url} ${km ?? "?"}km`);
+            known.add(url);
+            continue;
+          }
+          if (data.walk === false) {
+            warn(`跳过（非步行轨迹）：${data.docTitle?.slice(0, 40) || url}`);
+            known.add(url);
+            continue;
+          }
+          if (!Array.isArray(data.photos) || data.photos.length === 0) {
+            warn(`跳过（无照片，九宫格会空白）：${data.docTitle?.slice(0, 40) || url}`);
             known.add(url);
             continue;
           }

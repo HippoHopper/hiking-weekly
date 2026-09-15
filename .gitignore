@@ -3,4 +3,5 @@ dist
 .DS_Store
 *.local
 .pw-profile
+.chrome-cdp
 logs
