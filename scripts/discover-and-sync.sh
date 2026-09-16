@@ -9,9 +9,10 @@ LOG="logs/discover-$(date +%F).log"
 
 echo "===== $(date '+%F %T') discover start =====" >> "$LOG"
 node scripts/fetch-routes.js --discover >> "$LOG" 2>&1
-status=$?
-if [ $status -ne 0 ]; then
-  echo "discover exited with $status（库存保留，下次继续）" >> "$LOG"
+rc=$?
+# 注意：变量不能叫 status——zsh 里 status 是只读特殊变量，赋值会直接中止整个脚本
+if [ $rc -ne 0 ]; then
+  echo "discover exited with $rc（库存保留，下次继续）" >> "$LOG"
 fi
 
 git add scripts/track-library.json public/photos/library 2>>"$LOG"

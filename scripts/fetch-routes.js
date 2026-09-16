@@ -661,8 +661,18 @@ const jitterMs = () => 3500 + Math.random() * 3500;
 async function collectListLinks(page, keyword, pageNum, headed) {
   const url = `https://www.2bulu.com/track/list-${encodeURIComponent(keyword)}-----${pageNum}.htm?sortType=2`;
   log(`发现页：${keyword} 第 ${pageNum} 页`);
-  await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60_000 });
+  try {
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60_000 });
+  } catch (err) {
+    // Chrome 更新重启/CDP 断连等：本页放弃，保住整轮发现不中断
+    warn(`搜索页导航失败，跳过本页：${err.message}`);
+    return [];
+  }
   const deadline = Date.now() + WAIT_TRACK_MS;
+  // 出现 WAF 验证页时只保留 90s 人工点确认窗口：真人点完页面会自动重载，下轮轮询即取到链接；
+  // 持续拦截则提前结束本页，避免 12 城全程空等一个多小时（后续页面仍会再次检测）
+  let wafDeadline = 0;
+  const WAF_WAIT_MS = 90_000;
   let wafHinted = false;
   while (Date.now() < deadline) {
     const hrefs = await page
@@ -679,8 +689,12 @@ async function collectListLinks(page, keyword, pageNum, headed) {
     const bodyText = await page.evaluate(() => (document.body ? document.body.textContent : "")).catch(() => "");
     if (/当前环境|系统异常|客户端异常/.test(bodyText)) {
       if (!wafHinted) {
-        warn(headed ? "搜索页被 WAF 拦截，请在浏览器窗口完成验证，脚本继续…" : "搜索页被 WAF 拦截，建议 --headed 运行");
+        warn(headed ? "搜索页被 WAF 拦截，请在浏览器窗口完成验证（90s 内有效），脚本继续…" : "搜索页被 WAF 拦截，建议 --headed 运行");
         wafHinted = true;
+        wafDeadline = Date.now() + WAF_WAIT_MS;
+      } else if (Date.now() > wafDeadline) {
+        warn(`搜索页 WAF 持续拦截，90s 内未完成验证，提前跳过本页：${keyword} 第 ${pageNum} 页`);
+        return [];
       }
     }
     await page.waitForTimeout(2000);
