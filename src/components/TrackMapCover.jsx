@@ -14,11 +14,17 @@ function worldY(lat, z) {
   return (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * TILE * Math.pow(2, z);
 }
 
-function tileSrc(x, y, z) {
+// variant=track：高德 webrd 道路图（GCJ-02），与真实轨迹坐标同系；
+// variant=schematic：Carto light（OSM/WGS-84 浅色底图），与攻略关键点坐标同系。
+function tileSrc(x, y, z, variant) {
+  if (variant === "schematic") {
+    const sub = "bcd"[(x + y) % 3]; // a 子域偶发不通，只用 b/c/d
+    return `https://${sub}.basemaps.cartocdn.com/light_all/${z}/${x}/${y}.png`;
+  }
   return `https://webrd0${((x + y) % 4) + 1}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x=${x}&y=${y}&z=${z}`;
 }
 
-export default function TrackMapCover({ line, className = "" }) {
+export default function TrackMapCover({ line, variant = "track", className = "" }) {
   const canvasRef = useRef(null);
 
   useEffect(() => {
@@ -27,6 +33,7 @@ export default function TrackMapCover({ line, className = "" }) {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
+    const schematic = variant === "schematic";
     const tiles = new Map();
     let disposed = false;
 
@@ -76,7 +83,7 @@ export default function TrackMapCover({ line, className = "" }) {
       const viewLeft = cx - cssW / 2;
       const viewTop = cy - cssH / 2;
 
-      ctx.fillStyle = "#e9efe9";
+      ctx.fillStyle = schematic ? "#f1efe8" : "#e9efe9";
       ctx.fillRect(0, 0, cssW, cssH);
 
       const tx0 = Math.floor(viewLeft / TILE);
@@ -85,7 +92,7 @@ export default function TrackMapCover({ line, className = "" }) {
       const ty1 = Math.floor((viewTop + cssH) / TILE);
       for (let tx = tx0; tx <= tx1; tx += 1) {
         for (let ty = ty0; ty <= ty1; ty += 1) {
-          const key = `${z}/${tx}/${ty}`;
+          const key = `${variant}:${z}/${tx}/${ty}`;
           let img = tiles.get(key);
           if (!img) {
             img = new Image();
@@ -93,7 +100,7 @@ export default function TrackMapCover({ line, className = "" }) {
             img.onload = () => {
               if (!disposed) render();
             };
-            img.src = tileSrc(tx, ty, z);
+            img.src = tileSrc(tx, ty, z, variant);
             tiles.set(key, img);
           }
           if (img.complete && img.naturalWidth > 0) {
@@ -109,14 +116,47 @@ export default function TrackMapCover({ line, className = "" }) {
 
       ctx.lineJoin = "round";
       ctx.lineCap = "round";
-      ctx.beginPath();
-      pts.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)));
+      const tracePath = () => {
+        ctx.beginPath();
+        pts.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)));
+      };
+
+      if (schematic) {
+        // 关键点示意图：moss 色虚线 + 白色描边，每个点 1..n 编号
+        ctx.setLineDash([7, 7]);
+        tracePath();
+        ctx.strokeStyle = "rgba(255,255,255,0.9)";
+        ctx.lineWidth = 6;
+        ctx.stroke();
+        tracePath();
+        ctx.strokeStyle = "#3d5433";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.font = "bold 11px ui-sans-serif, system-ui, -apple-system, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        pts.forEach(([x, y], i) => {
+          ctx.beginPath();
+          ctx.arc(x, y, 10.5, 0, Math.PI * 2);
+          ctx.fillStyle = "#ffffff";
+          ctx.fill();
+          ctx.lineWidth = 2.5;
+          ctx.strokeStyle = "#3d5433";
+          ctx.stroke();
+          ctx.fillStyle = "#3d5433";
+          ctx.fillText(String(i + 1), x, y + 0.5);
+        });
+        return;
+      }
+
+      tracePath();
       ctx.strokeStyle = "rgba(255,255,255,0.92)";
       ctx.lineWidth = 6.5;
       ctx.stroke();
 
-      ctx.beginPath();
-      pts.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)));
+      tracePath();
       ctx.strokeStyle = "#e23a2e";
       ctx.lineWidth = 3.5;
       ctx.stroke();
@@ -152,7 +192,7 @@ export default function TrackMapCover({ line, className = "" }) {
       disposed = true;
       if (ro) ro.disconnect();
     };
-  }, [line]);
+  }, [line, variant]);
 
   return <canvas ref={canvasRef} className={className} aria-hidden="true" />;
 }

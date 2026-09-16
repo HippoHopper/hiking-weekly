@@ -16,6 +16,8 @@
     "seed": "node scripts/fetch-routes.js --seed",
     "rotate": "node scripts/fetch-routes.js --rotate",
     "rotate:write": "node scripts/fetch-routes.js --rotate --write",
+    "guides:sync": "node scripts/sync-guides.mjs",
+    "guides:check": "node scripts/sync-guides.mjs --offline",
     "discover": "node scripts/fetch-routes.js --discover",
     "test": "node --test scripts/lib/rotation.test.mjs"
   },

@@ -22,7 +22,9 @@ import { fileURLToPath } from "node:url";
 import {
   buildEdition,
   buildGroups,
+  buildGuideGroups,
   buildRoute,
+  combineGroups,
   lineCenter,
   nearestDestination,
   normalizeLibrary,
@@ -41,6 +43,7 @@ const WEEKLY_JSON = path.join(HERE, "weekly-tracks.json");
 const SUBMISSIONS_JSON = path.join(HERE, "submissions.json");
 const LIBRARY_JSON = path.join(HERE, "track-library.json");
 const DESTINATIONS_JSON = path.join(HERE, "lib/destinations.json");
+const GUIDE_GROUPS_JSON = path.join(HERE, "guide-groups.json");
 const PUBLISHED_JSON = path.join(HERE, "published.json");
 const DISCOVER_QUEUE_JSON = path.join(HERE, "discover-queue.json");
 const PHOTO_ROOT = path.join(ROOT, "public/photos");
@@ -378,6 +381,17 @@ const loadLibrary = () => normalizeLibrary(readJson(LIBRARY_JSON, null));
 const saveLibrary = (lib) => writeJson(LIBRARY_JSON, lib);
 const loadPublished = () => readJson(PUBLISHED_JSON, { history: [] });
 const savePublished = (p) => writeJson(PUBLISHED_JSON, p);
+// 攻略精选供给：读取本机 sync-guides 已提交的 guide-groups.json 快照（CI 零网络），缺失则降级为无攻略组
+function loadGuideGroups(destinations) {
+  const raw = readJson(GUIDE_GROUPS_JSON, null);
+  if (!raw) {
+    warn("未找到 scripts/guide-groups.json：本机运行 npm run guides:sync 生成，本轮不参与攻略路线选品");
+    return [];
+  }
+  const { groups, skipped } = buildGuideGroups(raw, destinations);
+  for (const s of skipped) warn(`攻略路线跳过：${s}`);
+  return groups;
+}
 
 /** 由 extractTrack 结果构造库存轨迹，并就近归城（超距返回 null） */
 function buildLibraryRecord({ url, data, photos, source, submittedAt = null, now }) {
@@ -601,16 +615,18 @@ async function runRotation({ write }) {
   const destinations = loadDestinations();
   const library = loadLibrary();
   const built = buildGroups(library.tracks, destinations);
-  saveLibrary({ version: library.version, tracks: built.tracks }); // 持久化归城/自动配对结果
-  log(`库存：${built.tracks.length} 条轨迹 → ${built.groups.length} 个完整双日组${built.orphans.length ? `，${built.orphans.length} 条未成对` : ""}`);
-  if (!built.groups.length) {
-    warn("没有任何完整双日组：先运行 npm run seed，再在本机运行 npm run discover 攒库存");
+  saveLibrary({ version: library.version, tracks: built.tracks }); // 持久化归城/自动配对结果；攻略组绝不写入库存
+  const guideGroups = loadGuideGroups(destinations);
+  const groups = combineGroups(built.groups, guideGroups);
+  log(`库存：${built.tracks.length} 条轨迹 → ${built.groups.length} 个真实双日组${built.orphans.length ? `，${built.orphans.length} 条未成对` : ""}；另有 ${guideGroups.length} 个攻略精选组`);
+  if (!groups.length) {
+    warn("没有任何可发布的双日组：先运行 npm run seed/discover 攒真实库存，或 npm run guides:sync 生成攻略组");
     return false;
   }
 
   const { depart, back } = targetWeekendDates();
   const month = Number(depart.slice(5, 7));
-  const slugs = [...new Set(built.groups.map((g) => g.slug))];
+  const slugs = [...new Set(groups.map((g) => g.slug))];
   const forecasts = {};
   for (const slug of slugs) {
     const dest = destinations.find((d) => d.slug === slug);
@@ -621,7 +637,7 @@ async function runRotation({ write }) {
 
   const published = loadPublished();
   const history = Array.isArray(published.history) ? published.history : [];
-  const { picks, layer, scored } = selectGroups(built.groups, forecasts, history, {
+  const { picks, layer, scored } = selectGroups(groups, forecasts, history, {
     count: WEEKLY_PICK_COUNT,
     weekendMonth: month,
   });
@@ -630,8 +646,9 @@ async function runRotation({ write }) {
   for (const g of picks) {
     const f = forecasts[g.slug];
     const wx = f ? f.days.map((d) => `${describeWeatherCode(d.code)} ${d.minC}–${d.maxC}°C`).join(" / ") : "无预报";
-    const total = (g.tracks[0].mileage_km || 0) + (g.tracks[1].mileage_km || 0);
-    log(`  → ${g.city}（${g.slug}）组 ${g.id} · 共 ${total.toFixed(1)}km · 评分 ${scoreOf.get(g.id)} · ${wx}`);
+    const total = (Number(g.tracks[0].mileage_km) || 0) + (Number(g.tracks[1].mileage_km) || 0);
+    const tag = g.kind === "guide" ? "[攻略] " : "";
+    log(`  → ${tag}${g.city}（${g.slug}）组 ${g.id} · 共 ${total.toFixed(1)}km · 评分 ${scoreOf.get(g.id)} · ${wx}`);
   }
   if (picks.length < WEEKLY_PICK_COUNT) {
     warn(`库存仅能产出 ${picks.length} 条路线（目标 ${WEEKLY_PICK_COUNT}），请在本机多跑 discover 攒库存`);

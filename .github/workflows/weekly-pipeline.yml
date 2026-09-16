@@ -33,9 +33,13 @@ jobs:
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 
+      - name: Verify curated guide artifact (offline)
+        # 攻略组坐标快照零网络校验：guide-routes.json 改了却忘记重跑 guides:sync 会在此失败
+        run: node scripts/sync-guides.mjs --offline
+
       - name: Rotate weekly routes from local track library
-        # 纯离线：只读仓库内 track-library.json/destinations.json/published.json，
-        # 不访问两步路（数据中心 IP 过不了 WAF）；库存由本机每日 discover 攒好后提交入库。
+        # 纯离线：只读仓库内 track-library.json/guide-groups.json/destinations.json/published.json，
+        # 不访问两步路（数据中心 IP 过不了 WAF）；库存由本机每日 discover、攻略由本机 guides:sync 攒好后提交入库。
         # open-meteo 天气实时参与打分；库存为空时脚本不改动 routes.json，部署自然保留上周内容。
         run: node scripts/fetch-routes.js --rotate --write --fares
         # 机票快照为 best-effort：Google Flights 抓取失败保留 fares.json 旧快照，不阻断发布

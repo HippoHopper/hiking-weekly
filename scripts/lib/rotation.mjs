@@ -170,6 +170,86 @@ export function buildGroups(libraryTracks, destinations) {
   return { groups, tracks: paired, orphans };
 }
 
+/**
+ * 攻略精选供给：读取 sync-guides.mjs 产物 guide-groups.json，把"无 GPS 轨迹、只有
+ * 有序关键点"的双日线包装成与真实轨迹组同构的候选组，供 selectGroups 统一打分。
+ * waypoint 坐标为 [lat,lng]，track.line 契约为 [lng,lat]，此处转换。
+ * 攻略组绝不回写 track-library.json（见 fetch-routes 的落盘范围）。
+ * 返回 { groups, skipped }。
+ */
+export function buildGuideGroups(rawGuideGroups, destinations) {
+  const destBySlug = new Map(destinations.map((d) => [d.slug, d]));
+  const routes = Array.isArray(rawGuideGroups?.routes) ? rawGuideGroups.routes : [];
+  const groups = [];
+  const skipped = [];
+
+  for (const route of routes) {
+    const dest = destBySlug.get(route.destination_slug);
+    if (!dest) {
+      skipped.push(`${route.id}: destinations.json 中无 ${route.destination_slug}`);
+      continue;
+    }
+    if (!Array.isArray(route.days) || route.days.length !== 2) {
+      skipped.push(`${route.id}: 需要恰好 2 天行程`);
+      continue;
+    }
+    const tracks = route.days.map((day, idx) => {
+      const wps = Array.isArray(day.waypoints) ? day.waypoints : [];
+      const line = wps.map((w) => [round5(Number(w.lng)), round5(Number(w.lat))]);
+      return {
+        kind: "guide",
+        group_id: `guide--${route.id}`,
+        day_role: idx + 1,
+        destination_slug: route.destination_slug,
+        city: dest.city,
+        name: day.title,
+        url: route.source_url,
+        source_name: route.source_name,
+        mileage_km: Number(day.distance_km),
+        elevation_gain_m: Number.isFinite(day.elevation_gain_m) ? day.elevation_gain_m : null,
+        center: lineCenter(line),
+        line,
+        photos: [],
+        waypoint_names: wps.map((w) => w.name),
+        highlight: day.highlight,
+      };
+    });
+    const complete = tracks.every(
+      (t) =>
+        Array.isArray(t.line) &&
+        t.line.length >= 2 &&
+        t.line.every(([x, y]) => Number.isFinite(x) && Number.isFinite(y)),
+    );
+    if (!complete) {
+      skipped.push(`${route.id}: 关键点坐标不完整（每天至少 2 个有效坐标）`);
+      continue;
+    }
+    groups.push({
+      id: `guide--${route.id}`,
+      slug: route.destination_slug,
+      city: dest.city,
+      kind: "guide",
+      destination: dest,
+      tracks,
+      guide: {
+        id: route.id,
+        title: route.title,
+        summary: route.summary,
+        difficulty_level: route.difficulty_level,
+        source_name: route.source_name,
+        source_url: route.source_url,
+      },
+    });
+  }
+  groups.sort((a, b) => a.id.localeCompare(b.id));
+  return { groups, skipped };
+}
+
+/** 合并多个候选组来源（真实轨迹组 + 攻略组），按 id 确定性排序 */
+export function combineGroups(...lists) {
+  return lists.flat().sort((a, b) => a.id.localeCompare(b.id));
+}
+
 /** "16–24°C" / "10-22°C" → [10,22]，无法解析返回 null */
 export function parseTempRange(text) {
   if (!text) return null;
@@ -352,12 +432,130 @@ function pointOfInterest(track, index, name, category, description) {
 }
 
 /**
- * 模板工厂：一个完整双日组 + 目的地元数据 → 一条符合前端契约的 routes.json 路线。
- * 票价严格只用 destinations.json 中已核实的值（null 保持 null，由前端引导 12306 实时查价）。
- * forecast 可为 null（weather_info 走静态兜底，前端再尝试实时天气）。
- * describeWeather：WMO code → 中文的映射函数（由调用方注入，复用 src/lib/weekend.js）。
+ * 攻略组模板：与真实轨迹路线同契约，但标题/摘要/难度/每日文案均来自人工精选库，
+ * 关键点生成编号 POI 与 [lng,lat] 示意折线，照片缺省为空。
+ */
+function buildGuideRoute(group, forecast, describeWeather) {
+  const dest = group.destination;
+  const meta = group.guide;
+  const [d1, d2] = group.tracks;
+  const km1 = trackKm(d1);
+  const km2 = trackKm(d2);
+  const total = round1((km1 || 0) + (km2 || 0));
+  const themes = dest.themes?.length ? dest.themes : ["徒步"];
+  const labelCity = dest.label || dest.city;
+
+  const train = dest.train || {};
+  const flight = dest.flight || null;
+  const recommendation = flight
+    ? `北京出发高铁约 ${train.duration || "2–5 小时"}直达${train.arrival || `${dest.city}站`}；也可直飞${flight.arrival}约 ${flight.duration}，按当周真实比价结果推荐。`
+    : `北京出发高铁约 ${train.duration || "2–5 小时"}直达${train.arrival || `${dest.city}站`}，票价以 12306 实时查询为准。`;
+
+  const fdays = forecast?.days || [];
+  const weatherDay = (i) => {
+    const f = fdays[i];
+    if (!f) return { condition: "多云", temp_range: dest.suitable_temp || null };
+    return { condition: describeWeather(f.code), temp_range: `${f.minC}–${f.maxC}°C` };
+  };
+
+  const c1 = lineCenter(d1.line) || d1.line[0];
+  const c2 = lineCenter(d2.line) || d2.line[0];
+  const centerLatLng = [round5((c1[1] + c2[1]) / 2), round5((c1[0] + c2[0]) / 2)];
+
+  const pois = [d1, d2].flatMap((t) =>
+    t.line.map(([lng, lat], i) => ({
+      name: t.waypoint_names?.[i] || `关键点 ${i + 1}`,
+      category: i === 0 ? "start" : i === t.line.length - 1 ? "landmark" : "viewpoint",
+      coordinates: [round5(lat), round5(lng)],
+      description: "",
+    })),
+  );
+
+  const mkDay = (t, dayNum) => ({
+    day: dayNum,
+    title: t.name,
+    track_kind: "guide",
+    source_name: t.source_name,
+    photos: [],
+    bulu_track_url: t.url,
+    bulu_track_name: t.source_name,
+    bulu_track_line: t.line,
+    elevation_gain_m: t.elevation_gain_m,
+    segments:
+      dayNum === 1
+        ? [
+            { time: "07:30–10:30", activity_type: "transport", highlight: "" },
+            { time: "10:30–17:00", activity_type: "hiking", highlight: t.highlight },
+            { time: "17:30–19:30", activity_type: "food", highlight: `${dest.city}当地晚餐，早休整为次日留体力。` },
+          ]
+        : [
+            { time: "08:00–13:00", activity_type: "hiking", highlight: t.highlight },
+            { time: "14:00–18:00", activity_type: "transport", highlight: "" },
+          ],
+  });
+
+  return {
+    id: dest.slug,
+    source_kind: "guide",
+    guide_id: meta.id,
+    title: meta.title,
+    summary: meta.summary,
+    tags: Array.from(new Set(["周末往返", "精选攻略", ...themes.slice(0, 3)])),
+    best_months: dest.season_months || [],
+    departure: {
+      city: "北京",
+      transport_type: "train",
+      transport_recommendation: recommendation,
+      train_url: "https://www.12306.cn/",
+      train_duration: train.duration || null,
+      train_arrival: train.arrival || `${dest.city}站`,
+      arrival_spot: train.arrival_spot || dest.spots?.[0] || `${dest.city}步道`,
+      return_note: `结束一个${themes[0]}周末。`,
+      ...(flight
+        ? {
+            flight_url: GOOGLE_FLIGHTS_TMPL(flight.code),
+            flight_duration: flight.duration,
+            flight_arrival: flight.arrival,
+          }
+        : {}),
+    },
+    weather_info: {
+      target_city: dest.city,
+      suitable_temp_range: dest.suitable_temp || null,
+      day1: weatherDay(0),
+      day2: weatherDay(1),
+      condition_note: dest.condition_note || "出发前再看一眼实时天气，分层穿衣最稳妥。",
+    },
+    overview: {
+      duration_days: 2,
+      total_hiking_km: total,
+      difficulty_level: meta.difficulty_level,
+    },
+    daily_distances: {
+      day1: `${km1 ?? "?"}km`,
+      day2: `${km2 ?? "?"}km`,
+    },
+    transport_label: `北京 ⇄ ${labelCity}`,
+    train_fare_ref_cny: typeof train.fare_cny === "number" ? train.fare_cny : null,
+    map_data: {
+      center_location: centerLatLng,
+      zoom_level: 12,
+      points_of_interest: pois,
+    },
+    itinerary: {
+      days: [mkDay(d1, 1), mkDay(d2, 2)],
+    },
+  };
+}
+
+/**
+ * 模板工厂：一个完整双日组 + 目的地元数据 → 一条符合前端契约的路线。
+ * kind==="guide" 的攻略组走 buildGuideRoute（人工标题/难度/文案 + 关键点示意线）；
+ * 真实轨迹组沿用原模板。票价严格只用 destinations.json 已核实值。
+ * forecast 可为 null（weather_info 走静态兜底）。describeWeather 由调用方注入。
  */
 export function buildRoute(group, forecast, describeWeather = (c) => "多云") {
+  if (group && group.kind === "guide") return buildGuideRoute(group, forecast, describeWeather);
   const dest = group.destination;
   const [d1, d2] = group.tracks;
   const km1 = trackKm(d1);
@@ -501,6 +699,7 @@ export function buildEdition(weekend, picks, nowIso) {
       slug: g.slug,
       group_id: g.id,
       tracks: g.tracks.map((t) => t.url),
+      ...(g.kind === "guide" ? { guide_id: g.guide.id } : {}),
     })),
   };
 }

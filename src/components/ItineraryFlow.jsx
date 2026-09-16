@@ -20,6 +20,7 @@ const withBase = (src) =>
 function DayModule({ route, day, mode }) {
   const photos = day.photos ?? [];
   const distance = route.daily_distances?.[`day${day.day}`];
+  const isGuide = day.track_kind === "guide";
 
   return (
     <div className="rounded-2xl border border-moss-200/60 bg-white/50 p-4 sm:p-5">
@@ -83,18 +84,19 @@ function DayModule({ route, day, mode }) {
         >
           <TrackMapCover
             line={day.bulu_track_line}
+            variant={isGuide ? "schematic" : "track"}
             className="pointer-events-none absolute inset-0 block h-full w-full transition duration-500 group-hover:scale-[1.03]"
           />
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-moss-900/90 via-moss-900/25 to-moss-900/5" />
           <div className="relative z-10 p-4 text-sand-50">
             <p className="flex items-center gap-1.5 text-sm font-medium">
               <Route className="h-4 w-4" aria-hidden />
-              两步路轨迹地图 · Day {day.day}
+              {isGuide ? `路线示意图 · Day ${day.day}` : `两步路轨迹地图 · Day ${day.day}`}
             </p>
             <p className="mt-1 text-xs leading-relaxed text-sand-100/90">{day.bulu_track_name}</p>
             <p className="mt-2 inline-flex items-center gap-1 text-[11px] text-sand-100/70">
               <ExternalLink className="h-3 w-3" aria-hidden />
-              点击在新标签页打开轨迹与导航
+              {isGuide ? "点击在新标签页打开参考攻略来源" : "点击在新标签页打开轨迹与导航"}
             </p>
           </div>
         </a>

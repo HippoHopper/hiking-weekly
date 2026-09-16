@@ -6,7 +6,9 @@ import { fileURLToPath } from "node:url";
 import {
   buildEdition,
   buildGroups,
+  buildGuideGroups,
   buildRoute,
+  combineGroups,
   editionsSincePublished,
   nearestDestination,
   normalizeLibrary,
@@ -279,4 +281,145 @@ test("buildEdition 记录发布组用于历史去重", () => {
   assert.equal(edition.destinations[0].slug, "dalian-coastal");
   assert.equal(edition.destinations[0].group_id, group.id);
   assert.equal(edition.destinations[0].tracks.length, 2);
+});
+
+// ---- 攻略精选供给（无 GPS 轨迹，只有有序关键点）----
+
+function demoGuideRaw() {
+  return {
+    routes: [
+      {
+        id: "demo-guide",
+        destination_slug: "taishan-climb",
+        title: "示例攻略标题",
+        summary: "示例摘要",
+        difficulty_level: "中等偏强",
+        source_name: "示例来源",
+        source_url: "https://example.com/guide",
+        days: [
+          {
+            title: "第一天标题",
+            distance_km: 9.5,
+            elevation_gain_m: 1300,
+            highlight: "第一天要点",
+            waypoints: [
+              { name: "甲点", lat: 36.201, lng: 117.121 },
+              { name: "乙点", lat: 36.252, lng: 117.101 },
+            ],
+          },
+          {
+            title: "第二天标题",
+            distance_km: 6,
+            elevation_gain_m: 0,
+            highlight: "第二天要点",
+            waypoints: [
+              { name: "丙点", lat: 36.261, lng: 117.102 },
+              { name: "丁点", lat: 36.269, lng: 117.136 },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+test("buildGuideGroups 把关键点包装成同构候选组，line 转为 [lng,lat] 且不编造照片", () => {
+  const { groups, skipped } = buildGuideGroups(demoGuideRaw(), destinations);
+  assert.equal(skipped.length, 0);
+  assert.equal(groups.length, 1);
+  const g = groups[0];
+  assert.equal(g.kind, "guide");
+  assert.equal(g.id, "guide--demo-guide");
+  assert.equal(g.slug, "taishan-climb");
+  assert.equal(g.tracks.length, 2);
+  const [t1, t2] = g.tracks;
+  assert.deepEqual(t1.line, [
+    [117.121, 36.201],
+    [117.101, 36.252],
+  ]);
+  assert.equal(t1.day_role, 1);
+  assert.equal(t1.mileage_km, 9.5);
+  assert.equal(t1.url, "https://example.com/guide");
+  assert.deepEqual(t1.photos, []);
+  assert.deepEqual(t1.waypoint_names, ["甲点", "乙点"]);
+  assert.equal(t2.line[1][0], 117.136);
+});
+
+test("buildGuideGroups 拒绝未知目的地与坐标不完整的天", () => {
+  const badSlug = demoGuideRaw();
+  badSlug.routes[0].destination_slug = "nope";
+  assert.equal(buildGuideGroups(badSlug, destinations).groups.length, 0);
+  const badCoord = demoGuideRaw();
+  badCoord.routes[0].days[1].waypoints = [{ name: "x", lat: null, lng: 117.1 }];
+  assert.equal(buildGuideGroups(badCoord, destinations).groups.length, 0);
+});
+
+test("buildRoute 攻略分支：人工标题/难度/文案、坐标序、空照片与来源链接", () => {
+  const [g] = buildGuideGroups(demoGuideRaw(), destinations).groups;
+  const route = buildRoute(g, null);
+  assert.equal(route.source_kind, "guide");
+  assert.equal(route.guide_id, "demo-guide");
+  assert.equal(route.id, "taishan-climb");
+  assert.equal(route.title, "示例攻略标题");
+  assert.equal(route.summary, "示例摘要");
+  assert.equal(route.overview.difficulty_level, "中等偏强"); // 人工难度，不走里程推断
+  assert.equal(route.overview.total_hiking_km, 15.5);
+  assert.equal(route.daily_distances.day1, "9.5km");
+  assert.equal(route.train_fare_ref_cny, null); // 泰安票价未核实
+
+  const day1 = route.itinerary.days[0];
+  assert.equal(day1.title, "第一天标题");
+  assert.equal(day1.track_kind, "guide");
+  assert.equal(day1.bulu_track_url, "https://example.com/guide");
+  assert.equal(day1.bulu_track_name, "示例来源");
+  assert.deepEqual(day1.photos, []);
+  assert.deepEqual(day1.bulu_track_line, [
+    [117.121, 36.201],
+    [117.101, 36.252],
+  ]);
+  assert.ok(day1.segments.some((s) => s.activity_type === "hiking" && s.highlight === "第一天要点"));
+
+  // map center / POI 是 [lat,lng]
+  const [clat, clng] = route.map_data.center_location;
+  assert.ok(Math.abs(clat - 36.25) < 0.06 && Math.abs(clng - 117.12) < 0.02);
+  const firstPoi = route.map_data.points_of_interest[0];
+  assert.equal(firstPoi.name, "甲点");
+  assert.deepEqual(firstPoi.coordinates, [36.201, 117.121]);
+});
+
+test("攻略组与真实轨迹组可合并选品，城市去重与确定性不变", () => {
+  const [d1, d2] = makePair("dalian-coastal", 18, 16, "seed");
+  const realGroups = buildGroups([d1, d2], destinations).groups;
+  const guideGroups = buildGuideGroups(demoGuideRaw(), destinations).groups;
+  const all = combineGroups(realGroups, guideGroups);
+  assert.equal(all.length, 2);
+  const { picks } = selectGroups(all, {}, [], { count: 2, weekendMonth: 9 });
+  assert.equal(picks.length, 2);
+  assert.deepEqual(picks.map((p) => p.slug).sort(), ["dalian-coastal", "taishan-climb"]);
+});
+
+test("buildEdition 攻略组带 guide_id", () => {
+  const [g] = buildGuideGroups(demoGuideRaw(), destinations).groups;
+  const edition = buildEdition("2026-09-19", [g], "2026-09-07T12:00:00.000Z");
+  assert.equal(edition.destinations[0].group_id, "guide--demo-guide");
+  assert.equal(edition.destinations[0].guide_id, "demo-guide");
+});
+
+test("真实产物 guide-groups.json 可构建为路线且关键字段无 NaN/undefined", () => {
+  const artifact = JSON.parse(readFileSync(path.join(HERE, "..", "guide-groups.json"), "utf8"));
+  const { groups, skipped } = buildGuideGroups(artifact, destinations);
+  assert.equal(skipped.length, 0);
+  assert.ok(groups.length >= 3);
+  for (const g of groups) {
+    const route = buildRoute(g, null);
+    assert.ok(route.title && route.overview.difficulty_level);
+    assert.equal(Number.isNaN(route.overview.total_hiking_km), false);
+    for (const day of route.itinerary.days) {
+      assert.ok(day.bulu_track_line.length >= 2);
+      for (const [lng, lat] of day.bulu_track_line) {
+        assert.ok(Number.isFinite(lng) && Number.isFinite(lat));
+      }
+      assert.equal(day.photos.length, 0);
+    }
+  }
 });
