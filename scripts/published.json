@@ -59,6 +59,38 @@
           ]
         }
       ]
+    },
+    {
+      "weekend": "2026-09-26",
+      "published_at": "2026-09-17T03:30:29.958Z",
+      "destinations": [
+        {
+          "slug": "tangshan-coast",
+          "group_id": "tangshan-coast--auto-1",
+          "tracks": [
+            "https://www.2bulu.com/track/t-3bch%252Bs5ASSHp%252FR2KBg5Tzw%253D%253D.htm",
+            "https://www.2bulu.com/track/t-AJz%252F1JNkp2Xp%252FR2KBg5Tzw%253D%253D.htm"
+          ]
+        },
+        {
+          "slug": "jinan-spring-hills",
+          "group_id": "guide--jinan-longdong-fohuishan",
+          "tracks": [
+            "https://post.m.smzdm.com/zz/p/aeork0dq/",
+            "https://post.m.smzdm.com/zz/p/aeork0dq/"
+          ],
+          "guide_id": "jinan-longdong-fohuishan"
+        },
+        {
+          "slug": "qingdao-coast",
+          "group_id": "guide--qingdao-coast-laoshan",
+          "tracks": [
+            "http://whlyj.qingdao.gov.cn/wlzy/xlgl/202112/t20211227_4142266.shtml",
+            "http://whlyj.qingdao.gov.cn/wlzy/xlgl/202112/t20211227_4142266.shtml"
+          ],
+          "guide_id": "qingdao-coast-laoshan"
+        }
+      ]
     }
   ]
 }
