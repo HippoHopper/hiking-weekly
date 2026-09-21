@@ -91,6 +91,37 @@
           "guide_id": "qingdao-coast-laoshan"
         }
       ]
+    },
+    {
+      "weekend": "2026-10-03",
+      "published_at": "2026-09-21T12:18:40.527Z",
+      "destinations": [
+        {
+          "slug": "shijiazhuang-taihang",
+          "group_id": "shijiazhuang-taihang--auto-1",
+          "tracks": [
+            "https://www.2bulu.com/track/t-vY%252FfGcaH3sLp%252FR2KBg5Tzw%253D%253D.htm",
+            "https://www.2bulu.com/track/t-C8t9uRhNHfXp%252FR2KBg5Tzw%253D%253D.htm"
+          ]
+        },
+        {
+          "slug": "taishan-climb",
+          "group_id": "guide--taishan-imperial-path",
+          "tracks": [
+            "https://tsgw.taian.gov.cn/art/2019/4/28/art_198322_5665476.html",
+            "https://tsgw.taian.gov.cn/art/2019/4/28/art_198322_5665476.html"
+          ],
+          "guide_id": "taishan-imperial-path"
+        },
+        {
+          "slug": "baoding-yesanpo",
+          "group_id": "baoding-yesanpo--auto-1",
+          "tracks": [
+            "https://www.2bulu.com/track/t-aPyS8aRozPjp%252FR2KBg5Tzw%253D%253D.htm",
+            "https://www.2bulu.com/track/t-j58lsmv4f%252BDp%252FR2KBg5Tzw%253D%253D.htm"
+          ]
+        }
+      ]
     }
   ]
 }
