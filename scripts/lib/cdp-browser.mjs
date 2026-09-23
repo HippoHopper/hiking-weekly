@@ -112,13 +112,18 @@ function makePage(conn, sessionId, targetId) {
     const fired = new Promise((resolve) => {
       remove = on(sessionId, eventName, () => resolve());
     });
-    const timer = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error(`goto ${url.slice(0, 80)} 超时`)), timeout),
-    );
+    let timerHandle;
+    const timer = new Promise((_, reject) => {
+      timerHandle = setTimeout(() => reject(new Error(`goto ${url.slice(0, 80)} 超时`)), timeout);
+    });
+    // 导航先成功时，定时器稍后触发会产生无人处理的 rejected promise（Node 直接崩进程）：
+    // 挂一个空 catch 兜底，正常路径下 finally 会 clearTimeout 根本不触发
+    timer.catch(() => {});
     try {
       await send("Page.navigate", { url }, sessionId);
       await Promise.race([fired, timer]);
     } finally {
+      clearTimeout(timerHandle);
       remove?.();
     }
   };

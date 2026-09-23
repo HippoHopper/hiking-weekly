@@ -202,8 +202,16 @@ async function extractTrack(page, url, headed) {
           ]);
           const lng = all.reduce((s, p) => s + p.lng, 0) / all.length;
           const lat = all.reduce((s, p) => s + p.lat, 0) / all.length;
+          // trackName 与轨迹点是页面两处独立赋值，实测会出现轨迹点先就绪、名称还是空的竞态：
+          // 用 document.title 兜底，剥掉站点模板后缀/快照时间戳（两步路未命名轨迹的 title 形如
+          // "2026-09-14 10:14唐山迁安市-GPS导航轨迹下载|行程线路图-步行轨迹"）
+          const titleName = String(document.title || "")
+            .replace(/[-_|]\s*(GPS导航轨迹下载|行程线路图|两步路)[\s\S]*$/g, "")
+            .replace(/^\d{4}-\d{2}-\d{2}\s+\d{2}(?::\d{2})?\s*/g, "")
+            .replace(/[-_|]\s*(步行轨迹|骑行轨迹|驾车轨迹|其他轨迹)\s*$/g, "")
+            .trim();
           return {
-            name: String(window.trackName || "").trim(),
+            name: String(window.trackName || "").trim() || titleName,
             mileage: Number(window.trackTotalMileage) || null,
             photos,
             line,
@@ -216,6 +224,21 @@ async function extractTrack(page, url, headed) {
         [TARGET_POINTS],
       )
       .catch(() => null);
+    // 快照瞬间名称仍可能未就绪：轨迹有效但名为空时，单独补读一次
+    if (data && data.line.length >= 2 && !data.name) {
+      data.name =
+        (await page
+          .evaluate(() => {
+            const t = String(window.trackName || "").trim();
+            if (t) return t;
+            return String(document.title || "")
+              .replace(/[-_|]\s*(GPS导航轨迹下载|行程线路图|两步路)[\s\S]*$/g, "")
+              .replace(/^\d{4}-\d{2}-\d{2}\s+\d{2}(?::\d{2})?\s*/g, "")
+              .replace(/[-_|]\s*(步行轨迹|骑行轨迹|驾车轨迹|其他轨迹)\s*$/g, "")
+              .trim();
+          })
+          .catch(() => "")) || "";
+    }
     if (data && data.line.length >= 2) return data;
 
     const bodyText = await page.evaluate(() => (document.body ? document.body.textContent : "")).catch(() => "");
