@@ -122,6 +122,36 @@
           ]
         }
       ]
+    },
+    {
+      "weekend": "2026-10-10",
+      "published_at": "2026-09-28T12:20:56.937Z",
+      "destinations": [
+        {
+          "slug": "zhangjiakou-greatwall",
+          "group_id": "zhangjiakou-greatwall--auto-1",
+          "tracks": [
+            "https://www.2bulu.com/track/t-1OZyFTCk47bp%252FR2KBg5Tzw%253D%253D.htm",
+            "https://www.2bulu.com/track/t-WKxE60ekbcfp%252FR2KBg5Tzw%253D%253D.htm"
+          ]
+        },
+        {
+          "slug": "dalian-coastal",
+          "group_id": "dalian-coastal--auto-1",
+          "tracks": [
+            "https://www.2bulu.com/track/t-DlmuW2yObVbp%252FR2KBg5Tzw%253D%253D.htm",
+            "https://www.2bulu.com/track/t-QgXODfpYlO%252Fp%252FR2KBg5Tzw%253D%253D.htm"
+          ]
+        },
+        {
+          "slug": "qingdao-coast",
+          "group_id": "qingdao-coast--auto-1",
+          "tracks": [
+            "https://www.2bulu.com/track/t-%252BRkfYbKJo2rp%252FR2KBg5Tzw%253D%253D.htm",
+            "https://www.2bulu.com/track/t-ljvi7R07NeXp%252FR2KBg5Tzw%253D%253D.htm"
+          ]
+        }
+      ]
     }
   ]
 }
