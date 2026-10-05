@@ -152,6 +152,36 @@
           ]
         }
       ]
+    },
+    {
+      "weekend": "2026-10-17",
+      "published_at": "2026-10-05T12:21:16.669Z",
+      "destinations": [
+        {
+          "slug": "jinan-spring-hills",
+          "group_id": "jinan-spring-hills--auto-1",
+          "tracks": [
+            "https://www.2bulu.com/track/t-bW2sKmlqsFfp%252FR2KBg5Tzw%253D%253D.htm",
+            "https://www.2bulu.com/track/t-4nco4DopfpDp%252FR2KBg5Tzw%253D%253D.htm"
+          ]
+        },
+        {
+          "slug": "tangshan-coast",
+          "group_id": "tangshan-coast--auto-3",
+          "tracks": [
+            "https://www.2bulu.com/track/t-DsPwinPPCwrp%252FR2KBg5Tzw%253D%253D.htm",
+            "https://www.2bulu.com/track/t-5pwV9EloQxfp%252FR2KBg5Tzw%253D%253D.htm"
+          ]
+        },
+        {
+          "slug": "shijiazhuang-taihang",
+          "group_id": "shijiazhuang-taihang--auto-2",
+          "tracks": [
+            "https://www.2bulu.com/track/t-A9ydjROX9izp%252FR2KBg5Tzw%253D%253D.htm",
+            "https://www.2bulu.com/track/t-8cTwtPYZQ1Dp%252FR2KBg5Tzw%253D%253D.htm"
+          ]
+        }
+      ]
     }
   ]
 }
