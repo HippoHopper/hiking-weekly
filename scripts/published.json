@@ -182,6 +182,36 @@
           ]
         }
       ]
+    },
+    {
+      "weekend": "2026-10-24",
+      "published_at": "2026-10-12T21:07:20.292Z",
+      "destinations": [
+        {
+          "slug": "chengde-qingchui",
+          "group_id": "chengde-qingchui",
+          "tracks": [
+            "https://www.2bulu.com/track/t-u7jPZJlh%252F%252BXp%252FR2KBg5Tzw%253D%253D.htm",
+            "https://www.2bulu.com/track/t-24I5BfnpzXLp%252FR2KBg5Tzw%253D%253D.htm"
+          ]
+        },
+        {
+          "slug": "beidaihe-boardwalk",
+          "group_id": "beidaihe-boardwalk",
+          "tracks": [
+            "https://www.2bulu.com/track/t-08F6VPo57NLp%252FR2KBg5Tzw%253D%253D.htm",
+            "https://www.2bulu.com/track/t-xTkk60ouXNnp%252FR2KBg5Tzw%253D%253D.htm"
+          ]
+        },
+        {
+          "slug": "zhangjiakou-greatwall",
+          "group_id": "zhangjiakou-greatwall--auto-2",
+          "tracks": [
+            "https://www.2bulu.com/track/t-HJJeuW0R2bXp%252FR2KBg5Tzw%253D%253D.htm",
+            "https://www.2bulu.com/track/t-w2x%252BoTHlG47p%252FR2KBg5Tzw%253D%253D.htm"
+          ]
+        }
+      ]
     }
   ]
 }
