@@ -212,6 +212,37 @@
           ]
         }
       ]
+    },
+    {
+      "weekend": "2026-10-31",
+      "published_at": "2026-10-19T18:34:26.332Z",
+      "destinations": [
+        {
+          "slug": "jinan-spring-hills",
+          "group_id": "guide--jinan-longdong-fohuishan",
+          "tracks": [
+            "https://post.m.smzdm.com/zz/p/aeork0dq/",
+            "https://post.m.smzdm.com/zz/p/aeork0dq/"
+          ],
+          "guide_id": "jinan-longdong-fohuishan"
+        },
+        {
+          "slug": "taishan-climb",
+          "group_id": "taishan-climb--auto-1",
+          "tracks": [
+            "https://www.2bulu.com/track/t-ybJ2yfnB3YTp%252FR2KBg5Tzw%253D%253D.htm",
+            "https://www.2bulu.com/track/t-k21XPOLO4Lzp%252FR2KBg5Tzw%253D%253D.htm"
+          ]
+        },
+        {
+          "slug": "shijiazhuang-taihang",
+          "group_id": "shijiazhuang-taihang--auto-3",
+          "tracks": [
+            "https://www.2bulu.com/track/t-bkpR1bdtlZrp%252FR2KBg5Tzw%253D%253D.htm",
+            "https://www.2bulu.com/track/t-bXyMexthZ%252Fnp%252FR2KBg5Tzw%253D%253D.htm"
+          ]
+        }
+      ]
     }
   ]
 }
