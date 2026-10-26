@@ -243,6 +243,37 @@
           ]
         }
       ]
+    },
+    {
+      "weekend": "2026-11-07",
+      "published_at": "2026-10-26T18:42:41.114Z",
+      "destinations": [
+        {
+          "slug": "qingdao-coast",
+          "group_id": "guide--qingdao-coast-laoshan",
+          "tracks": [
+            "http://whlyj.qingdao.gov.cn/wlzy/xlgl/202112/t20211227_4142266.shtml",
+            "http://whlyj.qingdao.gov.cn/wlzy/xlgl/202112/t20211227_4142266.shtml"
+          ],
+          "guide_id": "qingdao-coast-laoshan"
+        },
+        {
+          "slug": "dalian-coastal",
+          "group_id": "dalian-coastal",
+          "tracks": [
+            "https://www.2bulu.com/track/t-g6IIBJnxnpLp%252FR2KBg5Tzw%253D%253D.htm",
+            "https://www.2bulu.com/track/t-bmKBB0QA%252Fk3p%252FR2KBg5Tzw%253D%253D.htm"
+          ]
+        },
+        {
+          "slug": "baoding-yesanpo",
+          "group_id": "baoding-yesanpo--auto-1",
+          "tracks": [
+            "https://www.2bulu.com/track/t-aPyS8aRozPjp%252FR2KBg5Tzw%253D%253D.htm",
+            "https://www.2bulu.com/track/t-j58lsmv4f%252BDp%252FR2KBg5Tzw%253D%253D.htm"
+          ]
+        }
+      ]
     }
   ]
 }
