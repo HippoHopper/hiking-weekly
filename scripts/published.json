@@ -274,6 +274,37 @@
           ]
         }
       ]
+    },
+    {
+      "weekend": "2026-11-14",
+      "published_at": "2026-11-02T21:34:48.812Z",
+      "destinations": [
+        {
+          "slug": "taishan-climb",
+          "group_id": "guide--taishan-imperial-path",
+          "tracks": [
+            "https://tsgw.taian.gov.cn/art/2019/4/28/art_198322_5665476.html",
+            "https://tsgw.taian.gov.cn/art/2019/4/28/art_198322_5665476.html"
+          ],
+          "guide_id": "taishan-imperial-path"
+        },
+        {
+          "slug": "shijiazhuang-taihang",
+          "group_id": "shijiazhuang-taihang--auto-1",
+          "tracks": [
+            "https://www.2bulu.com/track/t-vY%252FfGcaH3sLp%252FR2KBg5Tzw%253D%253D.htm",
+            "https://www.2bulu.com/track/t-C8t9uRhNHfXp%252FR2KBg5Tzw%253D%253D.htm"
+          ]
+        },
+        {
+          "slug": "tangshan-coast",
+          "group_id": "tangshan-coast--auto-1",
+          "tracks": [
+            "https://www.2bulu.com/track/t-3bch%252Bs5ASSHp%252FR2KBg5Tzw%253D%253D.htm",
+            "https://www.2bulu.com/track/t-AJz%252F1JNkp2Xp%252FR2KBg5Tzw%253D%253D.htm"
+          ]
+        }
+      ]
     }
   ]
 }
