@@ -335,6 +335,36 @@
           ]
         }
       ]
+    },
+    {
+      "weekend": "2026-11-28",
+      "published_at": "2026-11-16T21:50:04.517Z",
+      "destinations": [
+        {
+          "slug": "shijiazhuang-taihang",
+          "group_id": "shijiazhuang-taihang--auto-2",
+          "tracks": [
+            "https://www.2bulu.com/track/t-A9ydjROX9izp%252FR2KBg5Tzw%253D%253D.htm",
+            "https://www.2bulu.com/track/t-8cTwtPYZQ1Dp%252FR2KBg5Tzw%253D%253D.htm"
+          ]
+        },
+        {
+          "slug": "beidaihe-boardwalk",
+          "group_id": "beidaihe-boardwalk",
+          "tracks": [
+            "https://www.2bulu.com/track/t-08F6VPo57NLp%252FR2KBg5Tzw%253D%253D.htm",
+            "https://www.2bulu.com/track/t-xTkk60ouXNnp%252FR2KBg5Tzw%253D%253D.htm"
+          ]
+        },
+        {
+          "slug": "chengde-qingchui",
+          "group_id": "chengde-qingchui",
+          "tracks": [
+            "https://www.2bulu.com/track/t-u7jPZJlh%252F%252BXp%252FR2KBg5Tzw%253D%253D.htm",
+            "https://www.2bulu.com/track/t-24I5BfnpzXLp%252FR2KBg5Tzw%253D%253D.htm"
+          ]
+        }
+      ]
     }
   ]
 }
