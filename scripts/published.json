@@ -365,6 +365,36 @@
           ]
         }
       ]
+    },
+    {
+      "weekend": "2026-12-05",
+      "published_at": "2026-11-23T23:38:47.210Z",
+      "destinations": [
+        {
+          "slug": "qingdao-coast",
+          "group_id": "qingdao-coast--auto-1",
+          "tracks": [
+            "https://www.2bulu.com/track/t-%252BRkfYbKJo2rp%252FR2KBg5Tzw%253D%253D.htm",
+            "https://www.2bulu.com/track/t-ljvi7R07NeXp%252FR2KBg5Tzw%253D%253D.htm"
+          ]
+        },
+        {
+          "slug": "tangshan-coast",
+          "group_id": "tangshan-coast--auto-3",
+          "tracks": [
+            "https://www.2bulu.com/track/t-DsPwinPPCwrp%252FR2KBg5Tzw%253D%253D.htm",
+            "https://www.2bulu.com/track/t-5pwV9EloQxfp%252FR2KBg5Tzw%253D%253D.htm"
+          ]
+        },
+        {
+          "slug": "taishan-climb",
+          "group_id": "taishan-climb--auto-1",
+          "tracks": [
+            "https://www.2bulu.com/track/t-ybJ2yfnB3YTp%252FR2KBg5Tzw%253D%253D.htm",
+            "https://www.2bulu.com/track/t-k21XPOLO4Lzp%252FR2KBg5Tzw%253D%253D.htm"
+          ]
+        }
+      ]
     }
   ]
 }
